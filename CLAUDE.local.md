@@ -53,7 +53,7 @@ Root causes found (all verified):
 
 Verified on the GPU (app log): whisper (whisper-rs 0.16, `Vulkan0`) and the `llama-helper` sidecar (33/33 layers on Vulkan0).
 
-Dependency upgrade plan (one step per commit, build after each): 1) whisper-rs 0.16 ✅ 2) Rust deps within semver (~270) 3) Tauri crates + npm packages in sync 4) low/medium-risk npm (radix, blocknote, tiptap …) 5) major jumps one at a time, Jonas decides (React 19, Next 16, Tailwind 4, TS 7, Zod 4, lucide 1.x) 6) Visual Studio 17.14.41.
+Dependency upgrades (2026-10-06) — done: whisper-rs 0.16, Rust deps within semver, Tauri crates + `@tauri-apps/*` npm packages (must stay in sync or `tauri build` refuses), llama-cpp 0.1.158, ffmpeg 9.0.2. **Decision (Jonas): do NOT upgrade frontend npm packages (radix, blocknote, tiptap, React/Next/Tailwind/TS/Zod/lucide majors) ourselves — take them from upstream** so rebases stay clean. Only remaining optional item: Visual Studio 17.14.41 (system install, ask first).
 
 Next: launch the app, verify Whisper uses the RX 9070 XT, then the language/KB-Whisper/summary plan above.
 ## Rules for working here

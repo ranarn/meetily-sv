@@ -125,8 +125,10 @@ fn download_and_extract_ffmpeg(
 fn get_ffmpeg_url_for_target(target: &str) -> Result<String, String> {
     // Platform-specific URLs
     let url = if target.contains("windows") {
-        // Windows
-        "https://github.com/Zackriya-Solutions/ffmpeg-binaries/releases/download/0.0.1/ffmpeg-8.0.1-essentials_build.zip"
+        // Windows (fork: pinned to gyan.dev's 9.0.2 release; upstream used its own mirror of 8.0.1)
+        // sha256 of this zip, verified 2026-10-06 against the GitHub release digest:
+        // 60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba
+        "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip"
     } else if target.contains("apple") {
         if target.contains("aarch64") {
             // Apple Silicon (M1/M2/M3)

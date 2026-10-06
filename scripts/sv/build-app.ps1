@@ -11,7 +11,7 @@ $binDir = Join-Path $root 'frontend\src-tauri\binaries'
 New-Item -ItemType Directory -Force $binDir | Out-Null
 Copy-Item "$TargetDir\release\llama-helper.exe" "$binDir\llama-helper-x86_64-pc-windows-msvc.exe" -Force
 
-$cmd = "`"$vcvars`" >nul && set `"CARGO_TARGET_DIR=$TargetDir`" && set `"CMAKE_GENERATOR=Ninja`" && set `"LIBCLANG_PATH=C:\Program Files\LLVM\bin`" && cd /d `"$root\frontend`" && pnpm tauri build --no-bundle -- --features vulkan"
+$cmd = "`"$vcvars`" >nul && set `"CARGO_TARGET_DIR=$TargetDir`" && set `"CMAKE_GENERATOR=Ninja`" && set `"LIBCLANG_PATH=C:\Program Files\LLVM\bin`" && cd /d `"$root\frontend`" && pnpm tauri build --no-bundle --config `"$PSScriptRoot\tauri.fork.conf.json`" -- --features vulkan"
 cmd /c $cmd
 $code = $LASTEXITCODE
 Write-Output "STATUS app-build exit=$code"

@@ -25,25 +25,19 @@ $env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin'
 
 Upstream pins pnpm 9.15.9 and keeps `pnpm.overrides` in `frontend/package.json`. pnpm 10+ ignores that field. This fork keeps the same overrides in `frontend/pnpm-workspace.yaml` instead; `pnpm install --frozen-lockfile` works with the unchanged `pnpm-lock.yaml`. (Good candidate for an upstream PR.)
 
-## Build steps
+## Build steps (working recipe, verified 2026-10-06)
 
 ```powershell
-cd frontend
-pnpm install --frozen-lockfile
-
-# 1. Sidecar (builtin-summary engine) — must exist before the app builds
-cd ..
-cargo build --release -p llama-helper --features vulkan
-New-Item -ItemType Directory -Force frontend\src-tauri\binaries | Out-Null
-Copy-Item target\release\llama-helper.exe frontend\src-tauri\binaries\llama-helper-x86_64-pc-windows-msvc.exe -Force
-
-# 2. App (no installer bundling)
-cd frontend
-pnpm tauri build --no-bundle -- --features vulkan
+# 1. Sidecar (builtin-summary engine) — Ninja + vcvars64 + short target dir
+pwsh scripts/sv/build-llama-helper.ps1            # needs CARGO_TARGET_DIR=D:\t in the calling shell
+# 2. App (copies the sidecar, then `pnpm tauri build --no-bundle -- --features vulkan`)
+pwsh scripts/sv/build-app.ps1 -LibclangPath D:\libclang18
 ```
 
-`frontend/build-gpu.bat` does the same plus a full bundle, but hardcodes LLVM at `C:\Program Files\LLVM\bin`.
+Why each piece is needed (all verified, see `CLAUDE.local.md` for the history):
 
-## Known issue: llama-helper + Vulkan fails
-
-See "Build status" in `CLAUDE.local.md` for symptoms, refuted hypotheses and next candidates. Short version: `vulkan-shaders-gen` ExternalProject steps run out of order under the Visual Studio generator.
+- **Ninja** (`winget install Ninja-build.Ninja`): the Visual Studio generator runs the `vulkan-shaders-gen` ExternalProject steps out of order.
+- **Short `CARGO_TARGET_DIR=D:\t`**: nested CMake try-compile paths hit MAX_PATH (260) → `LNK1104 intermediate.manifest`.
+- **`vcvars64.bat` environment**: Ninja needs `cl.exe` on PATH.
+- **libclang 18** (`D:\libclang18\libclang.dll`, from the PyPI wheel `libclang==18.1.1`): `whisper-rs-sys 0.11.1` uses bindgen 0.69.5, which yields an opaque `whisper_full_params` with libclang 23. Temporary until `whisper-rs` is upgraded.
+- In `cmd`, write `set "VAR=x"` — an unquoted `set VAR=x && ...` keeps the trailing space.

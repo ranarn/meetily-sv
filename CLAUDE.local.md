@@ -30,11 +30,13 @@ Jonas's hard fork of Meetily (https://github.com/Zackriya-Solutions/meetily, MIT
 - **Done:** KB-Whisper large q5_0 added to the Whisper catalog as `kb-large-q5_0` (`config.rs`, `whisper_engine.rs`, `whisper.ts`, `WhisperModelManager.tsx`; commit 2d54f9e). Source `KBLab/kb-whisper-large` `ggml-model-q5_0.bin` (1.08 GB, Apache-2.0) — file existence verified on HF.
 - **UI:** Transcript Model dropdown has only *Parakeet* and *Local Whisper*; models are listed *below* it. The language button ("Language", globe icon) is in the transcript panel on the main page and is shown **only for `localWhisper`**. Parakeet's language dialog only offers auto/auto-translate (`LanguageSelection.tsx:133`), so Parakeet cannot be forced to Swedish. Parakeet "Compact" is v2 = English-only.
 - **Defaults are still upstream's:** provider Parakeet v3 ("Lightning"), language `auto` (localStorage `primaryLanguage`, synced to Rust; Rust-side initial value is `auto-translate`, see `lib.rs:126`).
-- **Jonas's first impression (not measured):** KB-Whisper with `sv` is better than the default setup. Not yet verified: GPU use (Task Manager → GPU while recording), speed, quality vs. reference text.
+- **Defaults changed (commit 48baee9):** `DEFAULT_WHISPER_MODEL` = `kb-large-q5_0` (Rust + TS), language default `sv` (`lib.rs`, `ConfigContext.tsx`). Provider default is still Parakeet — it is hardcoded in ~10 places (engine.rs x4, api.rs, onboarding.rs, setting.rs, commands.rs, ConfigContext, Sidebar, useTranscriptionModels), changing it all is conflict-prone and was deliberately skipped.
+- **GPU verified (2026-10-06, app log):** `use gpu = 1`, `gpu_device = 0`, `ggml_vulkan: 0 = AMD Radeon RX 9070 XT`, `Vulkan0 total size = 1080.47 MB` for `kb-large-q5_0`; the iGPU is device 1. Log how: start `D:\t\release\meetily.exe` with `RUST_LOG=info` and redirect stderr to a file (there is no app log file otherwise). Upstream calls `create_state()` per transcription, so the Vulkan backend/compute buffers are re-initialised for every chunk — possible performance improvement.
+- **Jonas's first impression (not measured):** KB-Whisper with `sv` is better than the default setup. Test sentence transcribed correctly ("Okej, tjena nu kör vi här ett test för att se hur allting funkar."). Not yet measured: WER vs. reference text, latency.
 - **Research (secondary sources, not independently verified):** KBLab reports Swedish WER 5.4 (FLEURS) vs 7.8 for whisper-large-v3; Parakeet v3 15.08 (FLEURS). KB-small reportedly beats large-v3. Klang Pianissimo claims 4.5 but is vendor marketing. No source found on real multi-speaker Swedish meetings.
 - **Ideas not done:** KB-medium/small entries (faster), making KB + `sv` the fork default, GPU verification, Swedish summary prompt + larger Ollama model.
 
-## Build status (as of 2026-10-06) — app builds and RUNS (Vulkan build); GPU use NOT yet verified
+## Build status (as of 2026-10-06) — app builds and RUNS (Vulkan build, GPU use verified)
 
 Toolchain (latest where possible): CMake 4.4.4, Vulkan SDK 1.4.363 (`VULKAN_SDK=C:\VulkanSDK\1.4.363.0`), LLVM 23.1.2, VS 2022 17.14 (a newer 17.14.41 exists, not installed), Rust 1.99, Node 24, **Ninja 1.13.2**, **pnpm 12.9.1 (Jonas needs latest pnpm globally — never downgrade it)**.
 
@@ -46,7 +48,7 @@ Root causes found (all verified):
 3. `whisper-rs-sys 0.11.1` uses bindgen 0.69.5, which produces an *opaque* `whisper_full_params` (only `_address`) with libclang 23 → 71 E0609 errors in `whisper-rs`. **Fixed by upgrading to `whisper-rs 0.16.0` / `whisper-rs-sys 0.15.0`** (verified: builds with LLVM 23; needed 6 small API adaptations in `whisper_engine.rs`). A libclang 18 workaround was used briefly and is no longer needed.
 4. `cmd` `set VAR=x && ...` keeps the trailing space in the value → always quote: `set "VAR=x"`.
 
-Unverified: that the Vulkan sidecar/app actually run on the GPU, and that transcription output is unchanged after the whisper-rs upgrade.
+Unverified: that the Vulkan *sidecar* (llama-helper, built-in summaries) runs on the GPU; whisper (via whisper-rs 0.16) is verified on the GPU.
 
 Dependency upgrade plan (one step per commit, build after each): 1) whisper-rs 0.16 ✅ 2) Rust deps within semver (~270) 3) Tauri crates + npm packages in sync 4) low/medium-risk npm (radix, blocknote, tiptap …) 5) major jumps one at a time, Jonas decides (React 19, Next 16, Tailwind 4, TS 7, Zod 4, lucide 1.x) 6) Visual Studio 17.14.41.
 

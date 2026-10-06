@@ -12,7 +12,7 @@ use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaModel};
+use llama_cpp_2::model::LlamaModel;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -393,9 +393,13 @@ impl ModelState {
             .new_context(&self.backend, ctx_params)
             .context("unable to create the llama_context")?;
 
-        let tokens_list = model
-            .str_to_token(&prompt, AddBos::Always)
-            .with_context(|| "failed to tokenize prompt")?;
+        // llama-cpp-2 >= 0.1.158: tokenisation lives on the vocab. add_special = add BOS when the
+        // model wants one (was AddBos::Always), parse_special = true so chat-template markers work.
+        let vocab = model.vocab();
+        let tokens_list = vocab.tokenize(prompt.as_bytes(), true, true);
+        if tokens_list.is_empty() {
+            anyhow::bail!("failed to tokenize prompt (no tokens)");
+        }
 
         eprintln!("📝 Tokenized prompt: {} tokens", tokens_list.len());
 
@@ -431,6 +435,7 @@ impl ModelState {
             if sampling.uses_penalties() {
                 LlamaSampler::chain_simple([
                     LlamaSampler::penalties(
+                        vocab.n_tokens(),
                         sampling.penalty_last_n,
                         sampling.repeat_penalty,
                         sampling.frequency_penalty,
@@ -444,6 +449,7 @@ impl ModelState {
         } else if sampling.uses_penalties() {
             LlamaSampler::chain_simple([
                 LlamaSampler::penalties(
+                    vocab.n_tokens(),
                     sampling.penalty_last_n,
                     sampling.repeat_penalty,
                     sampling.frequency_penalty,
@@ -474,7 +480,7 @@ impl ModelState {
             let token = sampler.as_mut().sample(&ctx, batch.n_tokens() - 1);
             sampler.as_mut().accept(token);
 
-            if model.is_eog_token(token) {
+            if vocab.is_eog(token) {
                 eprintln!(
                     "✓ End-of-generation token reached (generated {} chars)",
                     output.len()
@@ -482,18 +488,8 @@ impl ModelState {
                 break;
             }
 
-            let output_bytes = match model.token_to_piece_bytes(token, 32, true, None) {
-                Err(llama_cpp_2::TokenToStringError::InsufficientBufferSpace(size)) => {
-                    let required_size: usize = size
-                        .checked_neg()
-                        .context("Invalid token piece buffer size")?
-                        .try_into()
-                        .context("Invalid token piece buffer size")?;
-                    model.token_to_piece_bytes(token, required_size, true, None)
-                }
-                result => result,
-            }
-            .context("Failed to convert token to bytes")?;
+            // llama-cpp-2 >= 0.1.158 sizes the buffer itself (no InsufficientBufferSpace retry needed).
+            let output_bytes = vocab.token_to_piece(token, true, None);
 
             let mut token_text = String::with_capacity(32);
             let _ = decoder.decode_to_string(&output_bytes, &mut token_text, false);

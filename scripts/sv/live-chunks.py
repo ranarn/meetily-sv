@@ -20,6 +20,8 @@ def main():
     ap.add_argument("out_dir")
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument("--af", default="")
+    ap.add_argument("--min-seconds", type=float, default=0.0,
+                    help="merge consecutive live chunks of a clip until each piece is at least this long (max 28 s)")
     a = ap.parse_args()
     if os.path.isdir(a.out_dir) and os.listdir(a.out_dir):
         sys.exit("out_dir is not empty")
@@ -37,6 +39,7 @@ def main():
     names, rows = [], []
     for cname, cs, ce in clips:
         n = 0
+        pieces = []
         for it in items:
             s, e = float(it["audio_start_time"]), float(it["audio_end_time"])
             if not (cs <= (s + e) / 2 < ce):
@@ -44,6 +47,12 @@ def main():
             s, e = max(s, cs), min(e, ce)
             if e - s < 0.3:
                 continue
+            # Optionally merge with the previous piece while it is shorter than --min-seconds (never beyond 28 s).
+            if a.min_seconds > 0 and pieces and (pieces[-1][1] - pieces[-1][0]) < a.min_seconds and (e - pieces[-1][0]) <= 28.0:
+                pieces[-1] = (pieces[-1][0], e)
+            else:
+                pieces.append((s, e))
+        for s, e in pieces:
             n += 1
             fn = f"{cname}__{n:03d}.wav"
             cmd = [a.ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-ss", f"{s:.3f}", "-t", f"{e - s:.3f}", "-i", a.audio, "-vn"]

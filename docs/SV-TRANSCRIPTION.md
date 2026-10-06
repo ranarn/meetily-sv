@@ -40,6 +40,26 @@ Both are reported; content is not a replacement for strict.
 | names + style prompt | 165 | 118 | worse than style alone |
 | f16 + dynaudnorm + style prompt | 155 | 110 | no extra gain over prompt alone |
 
+Further experiments (all app-like chunks, strict / content errors, same facit):
+
+| Change | Strict | Content | Verdict |
+|---|---|---|---|
+| prompt + last 15 / 30 words of the previous chunk | 158 / 160 | 111 / 113 | no gain over the plain style prompt (156 / 112) |
+| previous-chunk context only (no style prompt) | 190 | 137 | no gain |
+| static per-chunk peak normalisation (`peak-normalize-chunks.py`) | 186 | 133 | helps WITHOUT prompt (193), nothing on top of it (157 vs 156) |
+| dynaudnorm + style prompt | 153 | 110 | within noise of prompt alone |
+| live chunks merged to >= 8 s / >= 15 s, with style prompt | 156 / 161 | 107 / 114 | chunk length is not a lever |
+| OpenAI large-v3 q5_0, no prompt / style prompt | 188 / 164 | 145 / 134 | KB large + prompt is better, esp. on content |
+| KB-Whisper medium q5_0, no prompt / style | 223 / 217 | 174 / 172 | worse |
+| KB-Whisper small q5_0, no prompt / style | 219 / 185 | 170 / 143 | style prompt helps a lot, still worse than large |
+
+Error profile after the style prompt (content mode, 112 errors in 650 words): 44 missing words (mostly short function words:
+det, är, så), 23 extra words (att, det, så, är), 45 substitutions of which 20 are spelling/inflection-like and 25 real word
+changes (a few names such as Johan/Daniel, rare terms, a few mishearings). The remaining errors look acoustic (mumbled or
+overlapping speech, chunk edges), not something a prompt fixes. The app saves only the mixed track, so mic and system audio
+cannot be evaluated separately; the mixer (`pipeline.rs`) sums mic (loudness-normalised to -23 LUFS, noise-suppressed) and
+system audio (not normalised) with no gain control.
+
 Checks on the winning prompt: FLEURS 6.41 % vs 6.29 % (no harm); prompt phrases are not copied into the output (0 occurrences);
 no hesitation tokens appear in the output (0 vs 0). The gain comes from keeping spoken-language words the model otherwise
 deletes (deletions were the largest error class: 74 of 180 in the first baseline).
@@ -60,8 +80,9 @@ Not yet verified in the running app (the numbers above are offline replays).
 
 ## Open ideas (not done)
 
-- Carry the end of the previous chunk's text into the prompt (context continuity) - untested.
-- Dynamic level normalisation (dynaudnorm) in the capture pipeline: small gain, needs a streaming implementation.
+- Save mic and system audio as separate tracks (new feature) and transcribe/evaluate them separately; needs a new meeting + facit.
+- Parakeet v3 was not evaluated on the real meeting (different engine; would need the app's retranscribe path or an ONNX bench).
+- (Tested, no gain: previous-chunk context, level normalisation on top of the prompt, longer chunks, other Whisper sizes.)
 - KB-Whisper "strict" variant (more verbatim): the ggml files on its HF revision are copies of the standard model (identical sha256),
   the safetensors differ; would need conversion with whisper.cpp's convert script. The prompt may already capture most of the gain.
 - More facit (other meetings/speakers) before trusting small effects. `review-diff.py` lists every difference for fixing the facit.

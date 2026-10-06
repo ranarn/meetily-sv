@@ -5,6 +5,7 @@
 // Usage:
 //   whisper-bench --model <ggml.bin> --dir <wav dir> --list <names.txt> --out <hyp.tsv>
 //                 [--lang sv] [--beam 2] [--flash 0|1] [--temp 0.2] [--prompt-file <utf8 text file>]
+//                 [--carry N]  (last N words of the previous chunk of the same clip are added to the prompt)
 //                 [--no-speech-thold 0.55] [--logprob-thold -1.0] [--entropy-thold 2.4]
 // --beam 0 = greedy. The first clip of the list is transcribed once as a warm-up and not timed.
 // Output TSV: <wav name> \t <seconds> \t <text>
@@ -80,7 +81,10 @@ fn main() -> Result<()> {
         .map_err(|e| anyhow!("load model: {e}"))?;
     eprintln!("model loaded in {:.2}s (beam={}, flash={}, lang={}, temp={})", t_load.elapsed().as_secs_f64(), beam, flash, lang, temp);
 
-    let transcribe = |audio: &[f32]| -> Result<String> {
+    // --carry N: append the last N words of the previous chunk's output (same parent clip, split on "__") to the prompt.
+    let carry: usize = args.get("carry").map(|s| s.parse()).transpose()?.unwrap_or(0);
+
+    let transcribe = |audio: &[f32], tail: &str| -> Result<String> {
         let strategy = if beam <= 0 {
             SamplingStrategy::Greedy { best_of: 1 }
         } else {
@@ -104,7 +108,13 @@ fn main() -> Result<()> {
         params.set_no_speech_thold(no_speech);
         params.set_max_len(200);
         params.set_single_segment(false);
-        if let Some(p) = &prompt {
+        let full_prompt: Option<String> = match (&prompt, tail.is_empty()) {
+            (Some(p), true) => Some(p.clone()),
+            (Some(p), false) => Some(format!("{} {}", p, tail)),
+            (None, false) => Some(tail.to_string()),
+            (None, true) => None,
+        };
+        if let Some(p) = &full_prompt {
             params.set_initial_prompt(p);
         }
 
@@ -129,7 +139,9 @@ fn main() -> Result<()> {
 
     // Warm-up (shader compilation, allocations) on the first clip, not timed.
     let warm = read_wav_16k_mono(&dir.join(&names[0]))?;
-    let _ = transcribe(&warm)?;
+    let _ = transcribe(&warm, "")?;
+    let mut prev_parent = String::new();
+    let mut prev_tail = String::new();
 
     let mut tsv = String::new();
     let mut audio_total = 0.0f64;
@@ -137,9 +149,19 @@ fn main() -> Result<()> {
     for name in &names {
         let audio = read_wav_16k_mono(&dir.join(name))?;
         let secs_audio = audio.len() as f64 / 16000.0;
+        let parent = name.split("__").next().unwrap_or(name).to_string();
+        if parent != prev_parent {
+            prev_parent = parent;
+            prev_tail.clear();
+        }
         let t = Instant::now();
-        let text = transcribe(&audio)?;
+        let text = transcribe(&audio, if carry > 0 { &prev_tail } else { "" })?;
         let secs = t.elapsed().as_secs_f64();
+        if carry > 0 {
+            let words: Vec<&str> = text.split_whitespace().collect();
+            let start = words.len().saturating_sub(carry);
+            prev_tail = words[start..].join(" ");
+        }
         audio_total += secs_audio;
         compute_total += secs;
         tsv.push_str(&format!("{}\t{:.3}\t{}\n", name, secs, text.replace(['\t', '\n'], " ")));

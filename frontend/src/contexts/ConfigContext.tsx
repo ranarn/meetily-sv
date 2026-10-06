@@ -143,9 +143,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('primaryLanguage');
-      return saved || 'auto';
+      return saved || 'sv'; // fork: default Swedish (upstream: 'auto')
     }
-    return 'auto';
+    return 'sv';
   });
 
   // UI preferences state

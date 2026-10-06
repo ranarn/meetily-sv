@@ -34,10 +34,12 @@ Working recipe — `scripts/sv/build-llama-helper.ps1` then `scripts/sv/build-ap
 Root causes found (all verified):
 1. VS generator runs `vulkan-shaders-gen` ExternalProject steps out of order → **fixed by Ninja generator**.
 2. Under Ninja the nested try-compile fails with `LNK1104 ... intermediate.manifest` because the path is exactly 260 chars (MAX_PATH) → **fixed by short `CARGO_TARGET_DIR=D:\t`**.
-3. `whisper-rs-sys 0.11.1` uses bindgen 0.69.5, which produces an *opaque* `whisper_full_params` (only `_address`) with libclang 23 → 71 E0609 errors in `whisper-rs`. **Fixed by pointing `LIBCLANG_PATH` at libclang 18.1.1** (`D:\libclang18\libclang.dll`, extracted from the PyPI wheel `libclang==18.1.1`; pass `-LibclangPath D:\libclang18` to `build-app.ps1`). `llama-cpp-sys-2` (bindgen 0.72) is fine with either.
+3. `whisper-rs-sys 0.11.1` uses bindgen 0.69.5, which produces an *opaque* `whisper_full_params` (only `_address`) with libclang 23 → 71 E0609 errors in `whisper-rs`. **Fixed by upgrading to `whisper-rs 0.16.0` / `whisper-rs-sys 0.15.0`** (verified: builds with LLVM 23; needed 6 small API adaptations in `whisper_engine.rs`). A libclang 18 workaround was used briefly and is no longer needed.
 4. `cmd` `set VAR=x && ...` keeps the trailing space in the value → always quote: `set "VAR=x"`.
 
-Mind: `D:\libclang18` is not tracked; recreate it (see SV-BUILD.md) on a fresh machine. Unverified: that the Vulkan sidecar/app actually run on the GPU.
+Unverified: that the Vulkan sidecar/app actually run on the GPU, and that transcription output is unchanged after the whisper-rs upgrade.
+
+Dependency upgrade plan (one step per commit, build after each): 1) whisper-rs 0.16 ✅ 2) Rust deps within semver (~270) 3) Tauri crates + npm packages in sync 4) low/medium-risk npm (radix, blocknote, tiptap …) 5) major jumps one at a time, Jonas decides (React 19, Next 16, Tailwind 4, TS 7, Zod 4, lucide 1.x) 6) Visual Studio 17.14.41.
 
 Next: launch the app, verify Whisper uses the RX 9070 XT, then the language/KB-Whisper/summary plan above.
 ## Rules for working here

@@ -335,7 +335,7 @@ impl WhisperEngine {
                     // let _suppressor = crate::whisper_engine::StderrSuppressor::new();
 
                     // Load whisper context with hardware-optimized parameters
-                    WhisperContext::new_with_params(&model_info.path.to_string_lossy(), context_param)
+                    WhisperContext::new_with_params(&model_info.path, context_param)
                         .map_err(|e| anyhow!("Failed to load model {}: {}", model_name, e))?
                     // Suppressor dropped here, stderr restored
                 };
@@ -584,7 +584,7 @@ impl WhisperEngine {
 
         // Additional suppression to reduce C library verbosity
         params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
+        params.set_suppress_nst(true);
         params.set_temperature(adaptive_config.temperature);
         params.set_max_initial_ts(1.0);
         params.set_entropy_thold(2.4);
@@ -621,11 +621,10 @@ impl WhisperEngine {
         let mut total_confidence = 0.0;
         let mut segment_count = 0;
 
-        let num_segments = num_segments?;
         for i in 0..num_segments {
-            let segment_text = match state.full_get_segment_text_lossy(i) {
-                Ok(text) => text,
-                Err(_) => continue,
+            let segment_text = match state.get_segment(i).map(|s| s.to_str_lossy()) {
+                Some(Ok(text)) => text,
+                _ => continue,
             };
 
             // Calculate confidence based on segment length and duration (simplified approach)
@@ -689,7 +688,7 @@ impl WhisperEngine {
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
+        params.set_suppress_nst(true);
         params.set_temperature(0.3);
         params.set_max_initial_ts(1.0);
         params.set_entropy_thold(2.4);
@@ -700,13 +699,13 @@ impl WhisperEngine {
 
         let mut state = ctx.create_state()?;
         state.full(params, &audio_data)?;
-        let num_segments = state.full_n_segments()?;
+        let num_segments = state.full_n_segments();
         let mut result = String::new();
 
         for i in 0..num_segments {
-            let segment_text = match state.full_get_segment_text_lossy(i) {
-                Ok(text) => text,
-                Err(_) => continue,
+            let segment_text = match state.get_segment(i).map(|s| s.to_str_lossy()) {
+                Some(Ok(text)) => text,
+                _ => continue,
             };
             let cleaned_text = segment_text.trim();
             if !cleaned_text.is_empty() {

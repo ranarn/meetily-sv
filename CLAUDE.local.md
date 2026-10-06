@@ -25,23 +25,21 @@ Jonas's hard fork of Meetily (https://github.com/Zackriya-Solutions/meetily, MIT
 2. Transcription: evaluate **KB-Whisper** (Swedish fine-tune of Whisper by KBLab) as a ggml model; find where models are listed/downloaded in `whisper_engine` and add it. Parakeet is English-oriented — not for Swedish. (Model quality and ggml availability are NOT yet verified — check before relying on it.)
 3. Summaries: providers already exist under `frontend/src-tauri/src/` (`ollama`, `openai`, `groq`, `anthropic`, `openrouter`, `summary`). Plan is a larger multilingual model via Ollama + Swedish summary prompt — mostly config/prompt work. Ollama on the RX 9070 XT is independent of the app's own llama.cpp build.
 
-## Build status (as of 2026-10-06) — NOT yet built successfully
+## Build status (as of 2026-10-06) — app BUILDS (Vulkan); GPU use and runtime NOT yet verified
 
-Toolchain installed this session: CMake 4.4.4, Vulkan SDK 1.4.363 (`VULKAN_SDK=C:\VulkanSDK\1.4.363.0`), LLVM 23.1.2 (`LIBCLANG_PATH=C:\Program Files\LLVM\bin`), VS 2022 Community (C++), Rust 1.98, Node 24, **pnpm 12.9.1 (Jonas needs latest pnpm globally — never downgrade it)**. Our one tracked change so far: pnpm 12 compatibility (`pnpm.overrides` moved from `package.json` to `frontend/pnpm-workspace.yaml`).
+Toolchain (latest where possible): CMake 4.4.4, Vulkan SDK 1.4.363 (`VULKAN_SDK=C:\VulkanSDK\1.4.363.0`), LLVM 23.1.2, VS 2022 17.14 (a newer 17.14.41 exists, not installed), Rust 1.99, Node 24, **Ninja 1.13.2**, **pnpm 12.9.1 (Jonas needs latest pnpm globally — never downgrade it)**.
 
-Progress: pnpm install OK; `whisper-rs-sys` with `--features vulkan` compiles OK; **`llama-helper` (sidecar, builtin-summary llama.cpp) fails** in `llama-cpp-sys-2` with `--features vulkan`.
+Working recipe — `scripts/sv/build-llama-helper.ps1` then `scripts/sv/build-app.ps1` (both run inside `vcvars64.bat`, set `CMAKE_GENERATOR=Ninja`, use `CARGO_TARGET_DIR=D:\t`). Result: `D:\t\release\meetily.exe` (built, `exit=0`; not yet launched).
 
-Failure: sub-project `vulkan-shaders-gen` (CMake ExternalProject, Visual Studio generator) runs its install/build steps before configure → `Not a file: .../cmake_install.cmake`, `missing CMakeCache.txt`, `The system cannot find the batch label specified - VCEnd`.
+Root causes found (all verified):
+1. VS generator runs `vulkan-shaders-gen` ExternalProject steps out of order → **fixed by Ninja generator**.
+2. Under Ninja the nested try-compile fails with `LNK1104 ... intermediate.manifest` because the path is exactly 260 chars (MAX_PATH) → **fixed by short `CARGO_TARGET_DIR=D:\t`**.
+3. `whisper-rs-sys 0.11.1` uses bindgen 0.69.5, which produces an *opaque* `whisper_full_params` (only `_address`) with libclang 23 → 71 E0609 errors in `whisper-rs`. **Fixed by pointing `LIBCLANG_PATH` at libclang 18.1.1** (`D:\libclang18\libclang.dll`, extracted from the PyPI wheel `libclang==18.1.1`; pass `-LibclangPath D:\libclang18` to `build-app.ps1`). `llama-cpp-sys-2` (bindgen 0.72) is fine with either.
+4. `cmd` `set VAR=x && ...` keeps the trailing space in the value → always quote: `set "VAR=x"`.
 
-Hypotheses already tested and **refuted** (don't repeat): long path / MAX_PATH (short `CARGO_TARGET_DIR=D:\t` → same error); `NUM_JOBS=1` (cargo overrides it for build scripts); `cargo build -j 1` (cmake got `--parallel 1`, same error). Ordering is broken regardless of parallelism, likely VS generator + CMake 4.x.
+Mind: `D:\libclang18` is not tracked; recreate it (see SV-BUILD.md) on a fresh machine. Unverified: that the Vulkan sidecar/app actually run on the GPU.
 
-Next candidates, in order:
-1. **Ninja generator**: `CMAKE_GENERATOR=Ninja`. Ninja is NOT bundled in this VS install (checked) → needs `winget install Ninja-build.Ninja` (ask Jonas first), and the build must run inside a `vcvars64.bat` environment so `cl.exe` is on PATH.
-2. Build `llama-helper` **without** vulkan (CPU) to get a working baseline app; summaries can use Ollama anyway.
-3. Try a different CMake (e.g. 3.31) if Ninja does not help.
-
-Build procedure that reached the llama-helper step: see `docs/SV-BUILD.md`. Use `pnpm tauri build --no-bundle` (a full bundle may need updater signing keys). Run long builds in the background and verify with explicit exit-code output — a background task "completed" can still mean the script bailed out.
-
+Next: launch the app, verify Whisper uses the RX 9070 XT, then the language/KB-Whisper/summary plan above.
 ## Rules for working here
 
 - Don't claim a build/fix works without running it and showing the result.

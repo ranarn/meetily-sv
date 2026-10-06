@@ -193,7 +193,7 @@ pub fn get_available_models() -> Vec<ModelDef> {
         // Sizes verified against huggingface.co/unsloth/Qwen3.5-9B-GGUF (5.68 / 7.46 GB), 32 layers per config.json.
         ModelDef {
             name: "qwen3.5:9b".to_string(),
-            display_name: "Qwen 3.5 9B (Swedish test, Q4)".to_string(),
+            display_name: "Qwen 3.5 9B (Best Quality)".to_string(),
             gguf_file: "Qwen3.5-9B-Q4_K_M.gguf".to_string(),
             template: "qwen3.5_nonthinking".to_string(),
             download_url: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf".to_string(),
@@ -203,17 +203,32 @@ pub fn get_available_models() -> Vec<ModelDef> {
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "Larger Qwen 3.5 model, noticeably better multilingual quality. Needs ~8 GB VRAM or RAM.".to_string(),
         },
+        // Fork additions (meetily-sv): Gemma 4 12B (dense, 48 layers per model card). Sampling matches Google's
+        // recommendation (temp 1.0, top-k 64, top-p 0.95), identical to the Gemma 3 preset. Needs llama.cpp with
+        // the `gemma4` architecture (present in llama-cpp-sys-2 >= 0.1.146).
         ModelDef {
-            name: "qwen3.5:9b-q6".to_string(),
-            display_name: "Qwen 3.5 9B (Swedish test, Q6)".to_string(),
-            gguf_file: "Qwen3.5-9B-Q6_K.gguf".to_string(),
-            template: "qwen3.5_nonthinking".to_string(),
-            download_url: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q6_K.gguf".to_string(),
-            size_mb: 7110,
+            name: "gemma4:12b".to_string(),
+            display_name: "Gemma 4 12B (Best Quality)".to_string(),
+            gguf_file: "gemma-4-12b-it-Q4_K_M.gguf".to_string(),
+            template: "gemma4".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf".to_string(),
+            size_mb: 6780,
             context_size: 32768,
-            layer_count: 32,
-            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
-            description: "Qwen 3.5 9B at higher precision (near-lossless). Needs ~10 GB VRAM or RAM.".to_string(),
+            layer_count: 48,
+            sampling: SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()]),
+            description: "Google Gemma 4 12B. Larger multilingual model. Needs ~9 GB VRAM or RAM.".to_string(),
+        },
+        ModelDef {
+            name: "gemma4:12b-qat".to_string(),
+            display_name: "Gemma 4 12B QAT (Best Quality)".to_string(),
+            gguf_file: "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf".to_string(),
+            template: "gemma4".to_string(),
+            download_url: "https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF/resolve/main/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf".to_string(),
+            size_mb: 6400,
+            context_size: 32768,
+            layer_count: 48,
+            sampling: SamplingParams::gemma3_instruct(vec!["<turn|>".to_string()]),
+            description: "Gemma 4 12B trained for 4-bit (QAT), usually better quality than plain Q4. Needs ~9 GB VRAM or RAM.".to_string(),
         },
         // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
         ModelDef {
@@ -286,6 +301,18 @@ pub const GEMMA3_TEMPLATE: &str = "\
 <start_of_turn>model
 ";
 
+/// Gemma 4 chat template format (non-thinking), taken from the GGUF `tokenizer.chat_template` of
+/// unsloth/gemma-4-12b-it-GGUF: own system turn, `<|turn>`/`<turn|>` markers, and an empty thought
+/// channel opened after the model turn. BOS is added by llama-helper's tokenizer, not here.
+pub const GEMMA4_TEMPLATE: &str = "\
+<|turn>system
+{system_prompt}<turn|>
+<|turn>user
+{user_prompt}<turn|>
+<|turn>model
+<|channel>thought
+<channel|>";
+
 /// Qwen 3.5 non-thinking chat template format.
 /// This starts the assistant turn with an empty think block so generation begins
 /// in direct-response mode for summaries.
@@ -307,6 +334,10 @@ fn escape_user_prompt_control_markers(user_prompt: &str) -> String {
         .replace("<|im_end|>", "< |im_end| >")
         .replace("<start_of_turn>", "< start_of_turn >")
         .replace("<end_of_turn>", "< end_of_turn >")
+        .replace("<|turn>", "< |turn >")
+        .replace("<turn|>", "< turn| >")
+        .replace("<|channel>", "< |channel >")
+        .replace("<channel|>", "< channel| >")
         .replace("<think>", "< think >")
         .replace("</think>", "< /think >")
 }
@@ -327,6 +358,7 @@ pub fn format_prompt(
 ) -> Result<String> {
     let template = match template_name {
         "gemma3" => GEMMA3_TEMPLATE,
+        "gemma4" => GEMMA4_TEMPLATE,
         "qwen3.5_nonthinking" => QWEN35_NONTHINKING_TEMPLATE,
         _ => return Err(anyhow!("Unknown template: {}", template_name)),
     };

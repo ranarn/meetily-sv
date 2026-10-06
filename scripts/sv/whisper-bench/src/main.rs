@@ -4,7 +4,8 @@
 //
 // Usage:
 //   whisper-bench --model <ggml.bin> --dir <wav dir> --list <names.txt> --out <hyp.tsv>
-//                 [--lang sv] [--beam 2] [--flash 0|1] [--temp 0.2]
+//                 [--lang sv] [--beam 2] [--flash 0|1] [--temp 0.2] [--prompt-file <utf8 text file>]
+//                 [--no-speech-thold 0.55] [--logprob-thold -1.0] [--entropy-thold 2.4]
 // --beam 0 = greedy. The first clip of the list is transcribed once as a warm-up and not timed.
 // Output TSV: <wav name> \t <seconds> \t <text>
 
@@ -46,6 +47,17 @@ fn main() -> Result<()> {
     let beam: i32 = args.get("beam").map(|s| s.parse()).transpose()?.unwrap_or(2);
     let flash: bool = args.get("flash").map(|s| s == "1").unwrap_or(false);
     let temp: f32 = args.get("temp").map(|s| s.parse()).transpose()?.unwrap_or(0.2);
+    // Decoding thresholds (app defaults: no_speech 0.55, logprob -1.0, entropy 2.4).
+    let no_speech: f32 = args.get("no-speech-thold").map(|s| s.parse()).transpose()?.unwrap_or(0.55);
+    let logprob: f32 = args.get("logprob-thold").map(|s| s.parse()).transpose()?.unwrap_or(-1.0);
+    let entropy: f32 = args.get("entropy-thold").map(|s| s.parse()).transpose()?.unwrap_or(2.4);
+    // App default is no_timestamps(true); --timestamps 1 lets whisper.cpp track where text ended in each 30 s window.
+    let timestamps: bool = args.get("timestamps").map(|s| s == "1").unwrap_or(false);
+    // Optional initial prompt (vocabulary / style hint), read from a UTF-8 file so quoting is not an issue.
+    let prompt: Option<String> = match args.get("prompt-file") {
+        Some(p) => Some(fs::read_to_string(p)?.trim().to_string()),
+        None => None,
+    };
 
     let names: Vec<String> = fs::read_to_string(&list)?
         .lines()
@@ -77,7 +89,7 @@ fn main() -> Result<()> {
         let mut params = FullParams::new(strategy);
         params.set_language(Some(&lang));
         params.set_translate(false);
-        params.set_no_timestamps(true);
+        params.set_no_timestamps(!timestamps);
         params.set_token_timestamps(true);
         params.set_print_special(false);
         params.set_print_progress(false);
@@ -87,11 +99,14 @@ fn main() -> Result<()> {
         params.set_suppress_nst(true);
         params.set_temperature(temp);
         params.set_max_initial_ts(1.0);
-        params.set_entropy_thold(2.4);
-        params.set_logprob_thold(-1.0);
-        params.set_no_speech_thold(0.55);
+        params.set_entropy_thold(entropy);
+        params.set_logprob_thold(logprob);
+        params.set_no_speech_thold(no_speech);
         params.set_max_len(200);
         params.set_single_segment(false);
+        if let Some(p) = &prompt {
+            params.set_initial_prompt(p);
+        }
 
         let mut state = ctx.create_state().map_err(|e| anyhow!("create_state: {e}"))?;
         state.full(params, audio).map_err(|e| anyhow!("full: {e}"))?;

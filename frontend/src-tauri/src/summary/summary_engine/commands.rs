@@ -12,7 +12,6 @@ const QWEN35_4B_RECOMMENDED_RAM_GB: u64 = 14;
 
 pub(crate) fn summary_model_priority(model_name: &str) -> u8 {
     match model_name {
-        "qwen3.5:9b-q6" => 6, // fork
         "qwen3.5:9b" => 5,    // fork
         "qwen3.5:4b" => 4,
         "qwen3.5:2b" => 3,

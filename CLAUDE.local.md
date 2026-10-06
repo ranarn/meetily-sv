@@ -22,7 +22,7 @@ Jonas's hard fork of Meetily (https://github.com/Zackriya-Solutions/meetily, MIT
 ## Language/quality plan (not started)
 
 1. Verify the language preference is actually `sv` in the running app (`get_language_preference_internal`; `"auto"` / `"auto-translate"` / language code handled in `frontend/src-tauri/src/whisper_engine/whisper_engine.rs` ~l.567-692). Auto-detect alone may explain part of the poor Swedish.
-2. Transcription: evaluate **KB-Whisper** (Swedish fine-tune of Whisper by KBLab) as a ggml model; find where models are listed/downloaded in `whisper_engine` and add it. Parakeet is English-oriented — not for Swedish. (Model quality and ggml availability are NOT yet verified — check before relying on it.)
+2. Transcription: evaluate **KB-Whisper** (Swedish fine-tune of Whisper by KBLab) as a ggml model; find where models are listed/downloaded in `whisper_engine` and add it. Parakeet **v3** is multilingual and lists Swedish among its 25 languages (HF model card, Fleurs WER 15.08%); the app's default `parakeet-tdt-0.6b-v3-int8` is therefore a Swedish candidate to benchmark against Whisper/KB-Whisper (the v2 model is English-only). (Model quality and ggml availability are NOT yet verified — check before relying on it.)
 3. Summaries: providers already exist under `frontend/src-tauri/src/` (`ollama`, `openai`, `groq`, `anthropic`, `openrouter`, `summary`). Plan is a larger multilingual model via Ollama + Swedish summary prompt — mostly config/prompt work. Ollama on the RX 9070 XT is independent of the app's own llama.cpp build.
 
 ## Build status (as of 2026-10-06) — app BUILDS (Vulkan); GPU use and runtime NOT yet verified

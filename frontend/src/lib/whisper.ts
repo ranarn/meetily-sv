@@ -128,6 +128,14 @@ export const MODEL_CONFIGS: Record<string, Partial<ModelInfo>> = {
     size_mb: 1031,
     accuracy: 'High',
     speed: 'Slow'
+  },
+
+  // Fork addition (meetily-sv): Swedish fine-tune of large-v3 by KBLab
+  'kb-large-q5_0': {
+    description: 'KB-Whisper large, fine-tuned for Swedish (KBLab). Quantized.',
+    size_mb: 1030,
+    accuracy: 'High',
+    speed: 'Slow'
   }
 };
 
@@ -227,6 +235,8 @@ export function getModelTagline(modelName: string, speed: ProcessingSpeed, accur
     featureText = 'Balanced quality';
   } else if (baseName === 'tiny') {
     featureText = 'Fastest option';
+  } else if (baseName === 'kb-large') {
+    featureText = 'Swedish fine-tune';
   }
 
   // Add quantization note if applicable

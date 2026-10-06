@@ -1,0 +1,13 @@
+[package]
+name = "whisper-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+whisper-rs = { version = "0.16.0", features = ["vulkan"] }
+hound = "3.5"
+anyhow = "1"
+
+# Standalone: not part of the app's workspace.
+[workspace]

@@ -189,6 +189,32 @@ pub fn get_available_models() -> Vec<ModelDef> {
             sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
             description: "High-quality Qwen 3.5 model for built-in summaries. Best local Qwen option in the current lineup.".to_string(),
         },
+        // Fork additions (meetily-sv): Qwen 3.5 9B for better Swedish summaries on GPUs with >= 12 GB VRAM.
+        // Sizes verified against huggingface.co/unsloth/Qwen3.5-9B-GGUF (5.68 / 7.46 GB), 32 layers per config.json.
+        ModelDef {
+            name: "qwen3.5:9b".to_string(),
+            display_name: "Qwen 3.5 9B (Swedish test, Q4)".to_string(),
+            gguf_file: "Qwen3.5-9B-Q4_K_M.gguf".to_string(),
+            template: "qwen3.5_nonthinking".to_string(),
+            download_url: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf".to_string(),
+            size_mb: 5410,
+            context_size: 32768,
+            layer_count: 32,
+            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
+            description: "Larger Qwen 3.5 model, noticeably better multilingual quality. Needs ~8 GB VRAM or RAM.".to_string(),
+        },
+        ModelDef {
+            name: "qwen3.5:9b-q6".to_string(),
+            display_name: "Qwen 3.5 9B (Swedish test, Q6)".to_string(),
+            gguf_file: "Qwen3.5-9B-Q6_K.gguf".to_string(),
+            template: "qwen3.5_nonthinking".to_string(),
+            download_url: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q6_K.gguf".to_string(),
+            size_mb: 7110,
+            context_size: 32768,
+            layer_count: 32,
+            sampling: SamplingParams::qwen35_summary(vec!["<|im_end|>".to_string()]),
+            description: "Qwen 3.5 9B at higher precision (near-lossless). Needs ~10 GB VRAM or RAM.".to_string(),
+        },
         // Gemma 3 4B - Legacy alternative retained for users who prefer Gemma output.
         ModelDef {
             name: "gemma3:4b".to_string(),

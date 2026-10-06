@@ -41,3 +41,16 @@ Why each piece is needed (all verified, see `CLAUDE.local.md` for the history):
 - **`vcvars64.bat` environment**: Ninja needs `cl.exe` on PATH.
 - **`whisper-rs` >= 0.16** (`whisper-rs-sys` 0.15): the older 0.13.2 pulled bindgen 0.69.5, which yields an opaque `whisper_full_params` with libclang 23 (needed a libclang 18 workaround until upgraded).
 - In `cmd`, write `set "VAR=x"` — an unquoted `set VAR=x && ...` keeps the trailing space.
+
+## Release installer (Windows, unsigned)
+
+```powershell
+pwsh scripts/sv/build-llama-helper.ps1     # sidecar first (current llama.cpp)
+pwsh scripts/sv/build-release.ps1          # -> D:\t\release\bundle\nsis\meetily_<version>_x64-setup.exe
+```
+
+`build-release.ps1` refuses to run while `meetily.exe` / `llama-helper.exe` / `ffmpeg.exe` is running. It passes
+`scripts/sv/tauri.fork.conf.json` as a config override: NSIS only, no updater artifacts (no upstream signing key), and the
+updater endpoint points at the fork (`ranarn/meetily-sv`) so upstream's releases can never replace the fork build.
+No code signing (`DIGICERT_KEYPAIR_ALIAS` unset) -> Windows SmartScreen may warn about an unknown publisher.
+The installer keeps `%APPDATA%\com.meetily.ai` (meetings, models, settings). Tauri downloads its NSIS tools on first use.

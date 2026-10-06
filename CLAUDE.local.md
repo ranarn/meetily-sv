@@ -33,11 +33,12 @@ Jonas's hard fork of Meetily (https://github.com/Zackriya-Solutions/meetily, MIT
 - **Jonas's first impression (not measured):** KB-Whisper with `sv` is better than the default setup. Not yet verified: GPU use (Task Manager → GPU while recording), speed, quality vs. reference text.
 - **Research (secondary sources, not independently verified):** KBLab reports Swedish WER 5.4 (FLEURS) vs 7.8 for whisper-large-v3; Parakeet v3 15.08 (FLEURS). KB-small reportedly beats large-v3. Klang Pianissimo claims 4.5 but is vendor marketing. No source found on real multi-speaker Swedish meetings.
 - **Ideas not done:** KB-medium/small entries (faster), making KB + `sv` the fork default, GPU verification, Swedish summary prompt + larger Ollama model.
-## Build status (as of 2026-10-06) — app BUILDS (Vulkan); GPU use and runtime NOT yet verified
+
+## Build status (as of 2026-10-06) — app builds and RUNS (Vulkan build); GPU use NOT yet verified
 
 Toolchain (latest where possible): CMake 4.4.4, Vulkan SDK 1.4.363 (`VULKAN_SDK=C:\VulkanSDK\1.4.363.0`), LLVM 23.1.2, VS 2022 17.14 (a newer 17.14.41 exists, not installed), Rust 1.99, Node 24, **Ninja 1.13.2**, **pnpm 12.9.1 (Jonas needs latest pnpm globally — never downgrade it)**.
 
-Working recipe — `scripts/sv/build-llama-helper.ps1` then `scripts/sv/build-app.ps1` (both run inside `vcvars64.bat`, set `CMAKE_GENERATOR=Ninja`, use `CARGO_TARGET_DIR=D:\t`). Result: `D:\t\release\meetily.exe` (built, `exit=0`; not yet launched).
+Working recipe — `scripts/sv/build-llama-helper.ps1` then `scripts/sv/build-app.ps1` (both run inside `vcvars64.bat`, set `CMAKE_GENERATOR=Ninja`, use `CARGO_TARGET_DIR=D:\t`). Result: `D:\t\release\meetily.exe` (built, `exit=0`; launched by Jonas, records and transcribes OK). Close the app before rebuilding — a running `meetily.exe` locks files in `D:\t\release` (os error 32).
 
 Root causes found (all verified):
 1. VS generator runs `vulkan-shaders-gen` ExternalProject steps out of order → **fixed by Ninja generator**.

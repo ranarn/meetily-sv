@@ -147,10 +147,27 @@ fn detect_vram_gb() -> f32 {
         }
     }
 
-    /// TODO: Vulkan VRAM detection
+    #[cfg(feature = "vulkan")]
+    {
+        // Fork addition (meetily-sv): Vulkan (AMD/Intel) via ggml device query
+        if let Some(vram) = detect_vulkan_vram() {
+            eprintln!("Vulkan VRAM detected: {:.2} GB free", vram);
+            return vram;
+        }
+    }
 
     eprintln!("VRAM detection not available, using conservative estimate");
     4.0 // Conservative fallback
+}
+
+/// Free memory of the first dedicated GPU as reported by ggml (requires LlamaBackend to be initialised).
+/// Integrated GPUs are skipped: they share system RAM, so their "free" figure is not VRAM.
+#[cfg(feature = "vulkan")]
+fn detect_vulkan_vram() -> Option<f32> {
+    llama_cpp_2::list_llama_ggml_backend_devices()
+        .into_iter()
+        .find(|d| d.device_type == llama_cpp_2::LlamaBackendDeviceType::Gpu)
+        .map(|d| d.memory_free as f32 / (1024.0 * 1024.0 * 1024.0))
 }
 
 #[cfg(feature = "metal")]

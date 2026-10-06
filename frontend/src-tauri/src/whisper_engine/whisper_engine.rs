@@ -7,6 +7,14 @@ use std::time::Duration;
 use tokio::sync::{watch, Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
 use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
+
+/// Fork (meetily-sv): initial prompt for Swedish. KB-Whisper is trained on cleaned subtitles and tends to drop
+/// spoken-language words (ja, alltså, liksom, ju ...). A prompt written in that style keeps them. Measured on a
+/// real Swedish meeting replayed in the app's live chunk format: 193 -> 156 word errors (-19 %), better in all
+/// 5 clips, no change on read speech (FLEURS), and the prompt text is not copied into the output. See
+/// docs/SV-TRANSCRIPTION.md. A prompt without such words (plain description) did not help.
+const SWEDISH_STYLE_PROMPT: &str =
+    "Ja, men alltså, det är ju liksom så att vi har pratat om det här, eh, ganska länge nu. Nej, precis, och sen så får vi se, ja.";
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use reqwest::Client;
@@ -574,6 +582,9 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
+        if language_code == Some("sv") {
+            params.set_initial_prompt(SWEDISH_STYLE_PROMPT);
+        }
 
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
@@ -690,6 +701,9 @@ impl WhisperEngine {
         };
         params.set_language(language_code);
         params.set_translate(should_translate);
+        if language_code == Some("sv") {
+            params.set_initial_prompt(SWEDISH_STYLE_PROMPT);
+        }
 
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards

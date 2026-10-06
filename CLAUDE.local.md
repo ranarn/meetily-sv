@@ -19,12 +19,20 @@ Jonas's hard fork of Meetily (https://github.com/Zackriya-Solutions/meetily, MIT
 - Submodule `backend/whisper.cpp` points to Zackriya's *own* whisper.cpp fork — watch it too.
 - Upstream sells "Meetily PRO" (better accuracy, diarization). Community edition may be intentionally weaker; do not expect upstream to fix Swedish.
 
-## Language/quality plan (not started)
+## Language/quality plan (in progress)
 
 1. Verify the language preference is actually `sv` in the running app (`get_language_preference_internal`; `"auto"` / `"auto-translate"` / language code handled in `frontend/src-tauri/src/whisper_engine/whisper_engine.rs` ~l.567-692). Auto-detect alone may explain part of the poor Swedish.
 2. Transcription: evaluate **KB-Whisper** (Swedish fine-tune of Whisper by KBLab) as a ggml model; find where models are listed/downloaded in `whisper_engine` and add it. Parakeet **v3** is multilingual and lists Swedish among its 25 languages (HF model card, Fleurs WER 15.08%); the app's default `parakeet-tdt-0.6b-v3-int8` is therefore a Swedish candidate to benchmark against Whisper/KB-Whisper (the v2 model is English-only). (Model quality and ggml availability are NOT yet verified — check before relying on it.)
 3. Summaries: providers already exist under `frontend/src-tauri/src/` (`ollama`, `openai`, `groq`, `anthropic`, `openrouter`, `summary`). Plan is a larger multilingual model via Ollama + Swedish summary prompt — mostly config/prompt work. Ollama on the RX 9070 XT is independent of the app's own llama.cpp build.
 
+## Swedish transcription findings (2026-10-06)
+
+- **Done:** KB-Whisper large q5_0 added to the Whisper catalog as `kb-large-q5_0` (`config.rs`, `whisper_engine.rs`, `whisper.ts`, `WhisperModelManager.tsx`; commit 2d54f9e). Source `KBLab/kb-whisper-large` `ggml-model-q5_0.bin` (1.08 GB, Apache-2.0) — file existence verified on HF.
+- **UI:** Transcript Model dropdown has only *Parakeet* and *Local Whisper*; models are listed *below* it. The language button ("Language", globe icon) is in the transcript panel on the main page and is shown **only for `localWhisper`**. Parakeet's language dialog only offers auto/auto-translate (`LanguageSelection.tsx:133`), so Parakeet cannot be forced to Swedish. Parakeet "Compact" is v2 = English-only.
+- **Defaults are still upstream's:** provider Parakeet v3 ("Lightning"), language `auto` (localStorage `primaryLanguage`, synced to Rust; Rust-side initial value is `auto-translate`, see `lib.rs:126`).
+- **Jonas's first impression (not measured):** KB-Whisper with `sv` is better than the default setup. Not yet verified: GPU use (Task Manager → GPU while recording), speed, quality vs. reference text.
+- **Research (secondary sources, not independently verified):** KBLab reports Swedish WER 5.4 (FLEURS) vs 7.8 for whisper-large-v3; Parakeet v3 15.08 (FLEURS). KB-small reportedly beats large-v3. Klang Pianissimo claims 4.5 but is vendor marketing. No source found on real multi-speaker Swedish meetings.
+- **Ideas not done:** KB-medium/small entries (faster), making KB + `sv` the fork default, GPU verification, Swedish summary prompt + larger Ollama model.
 ## Build status (as of 2026-10-06) — app BUILDS (Vulkan); GPU use and runtime NOT yet verified
 
 Toolchain (latest where possible): CMake 4.4.4, Vulkan SDK 1.4.363 (`VULKAN_SDK=C:\VulkanSDK\1.4.363.0`), LLVM 23.1.2, VS 2022 17.14 (a newer 17.14.41 exists, not installed), Rust 1.99, Node 24, **Ninja 1.13.2**, **pnpm 12.9.1 (Jonas needs latest pnpm globally — never downgrade it)**.

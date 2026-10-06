@@ -1085,6 +1085,8 @@ impl WhisperEngine {
             "medium-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
             "large-v3-turbo-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
             "large-v3-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin",
+            // Fork addition (meetily-sv): KBLab Swedish fine-tune
+            "kb-large-q5_0" => "https://huggingface.co/KBLab/kb-whisper-large/resolve/main/ggml-model-q5_0.bin",
             _ => return Err(anyhow!("Unsupported model: {}", model_name)),
         };
 
